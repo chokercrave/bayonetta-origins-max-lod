@@ -1,0 +1,3 @@
+# The module is built by make and sh inside the devkitpro/devkita64 Linux container (build.sh), which choke on CRLF.
+# Keep every text file LF on checkout, whatever core.autocrlf says.
+* text=auto eol=lf

@@ -1,0 +1,2 @@
+/* Export nothing: rtld must never bind another exlaunch module to our symbols, nor ours to theirs. */
+{ local: *; };
