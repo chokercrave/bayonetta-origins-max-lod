@@ -42,6 +42,20 @@ other exlaunch mods that use other `subsdk` slots.
 
 To uninstall, delete the folder (or disable it in the emulator's add-on list).
 
+## Optional no-lens build
+
+`BayonettaOrigins-MaxLOD-vX.Y.Z-no-lens.zip` is the same mod, plus one cosmetic change: it removes the opaque white
+lenses from Cereza's glasses, on every outfit, so her eyes show through the frames. The frames themselves stay. It
+finds the lens by its texture (one small batch per detail level, 52 triangles at LOD0) and drops that batch from the
+model's draw list, logging a line such as:
+
+```
+[ORLOD] wmb 0x2152ec0480: LOD0 lens batch 12 (52 tris) hidden
+```
+
+Tested in Eden in gameplay and cutscenes. Install either the normal build or the no-lens build, not both: they use the
+same `subsdk7` slot.
+
 ## Test build
 
 The release also contains `BayonettaOrigins-MaxLOD-vX.Y.Z-TEST-lowest-detail.zip`, which does the opposite: every
@@ -88,10 +102,10 @@ Requires devkitA64 + libnx (devkitPro), or Docker with the `devkitpro/devkita64`
 sh build.sh
 ```
 
-It produces `dist/Origins Max LOD/exefs/subsdk7` (release) and
-`dist/Origins Max LOD (test - forces LOWEST detail)/exefs/subsdk7` (test build). The source of the mod itself is
-[`source/program/main.cpp`](source/program/main.cpp). To build only one variant, run `make` with
-`C_FLAGS=-DLOD_TARGET=0` (release) or `C_FLAGS=-DLOD_TARGET=2` (test).
+It produces `dist/Origins Max LOD/exefs/subsdk7` (release), `dist/Origins Max LOD (no lens)/exefs/subsdk7`
+(no-lens release) and `dist/Origins Max LOD (test - forces LOWEST detail)/exefs/subsdk7` (test build). The source of
+the mod itself is [`source/program/main.cpp`](source/program/main.cpp). To build only one variant, run `make` with
+`C_FLAGS=-DLOD_TARGET=0` (release), `C_FLAGS=-DLOD_NO_LENS=1` (no lens) or `C_FLAGS=-DLOD_TARGET=2` (test).
 
 ## Credits and license
 

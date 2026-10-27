@@ -2,3 +2,4 @@ build/
 deploy/
 dist/
 work.*
+dist-test/

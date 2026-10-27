@@ -1,6 +1,7 @@
 #!/bin/sh
-# Build the LOD module twice and package both into dist/: the release (every model at LOD0) and a test build that forces
-# LOD2 instead, to check on screen that the redirect reaches the renderer. Uses devkitA64 + libnx when DEVKITPRO is
+# Build the LOD module three times and package each into dist/: the release (every model at LOD0), the optional no-lens
+# release (also hides the white lenses of Cereza's glasses), and a test build that forces LOD2 instead, to check on
+# screen that the redirect reaches the renderer. Uses devkitA64 + libnx when DEVKITPRO is
 # set, the devkitpro/devkita64 Docker image otherwise. Make cannot handle spaces, so keep this folder on a space-free path.
 set -e
 P="$(cd "$(dirname "$0")" && pwd)"
@@ -18,6 +19,10 @@ rm -rf "$P/dist"
 # No main.npdm: the game's own one is used, so this mod never fights another mod that ships its own main.npdm.
 build ""
 D="$P/dist/Origins Max LOD/exefs"; mkdir -p "$D"
+cp "$P/deploy/subsdk7" "$D/"
+cp "$P/README.md" "$P/LICENSE" "$D/.."
+build "-DLOD_NO_LENS=1"
+D="$P/dist/Origins Max LOD (no lens)/exefs"; mkdir -p "$D"
 cp "$P/deploy/subsdk7" "$D/"
 cp "$P/README.md" "$P/LICENSE" "$D/.."
 build "-DLOD_TARGET=2"

@@ -23,6 +23,13 @@
 #define LOD_TARGET 0
 #endif
 
+// 1 = also hide the white lenses of Cereza's glasses on every skin. The lens is one batch per LOD with a 64x64 white
+// albedo: 0x1F753DC3 in the shared skin texture pack pl00f0 (plf000, pl0001-pl0008), 0x4E23DC29 in pl0000 / pl0020.
+// Keyed on that texture, not on the Glass00 shader, because pl0001 / pl0002 use the glass shader for costume parts too.
+#ifndef LOD_NO_LENS
+#define LOD_NO_LENS 0
+#endif
+
 namespace {
 
 template <typename T>
@@ -59,15 +66,61 @@ u32 Tris(const u8* w, const WmbLod& l) {
     return idx / 3;
 }
 
+#if LOD_NO_LENS
+bool IsLensMaterial(const u8* w, u32 mat) {
+    u32 mats = At<u32>(w, 0x68), count = At<u32>(w, 0x6C);   // 0x30-byte records; +0x18 / +0x1C textures {name, hash}
+    if (mat >= count) return false;
+    u32 tex = At<u32>(w, mats + 0x30 * mat + 0x18), n = At<u32>(w, mats + 0x30 * mat + 0x1C);
+    for (u32 k = 0; k < n && k < 32; k++) {
+        u32 h = At<u32>(w, tex + 8 * k + 4);
+        if (h == 0x1F753DC3 || h == 0x4E23DC29) return true;
+    }
+    return false;
+}
+
+// Drops every lens batch from each LOD record by rotating the record's batches [k, end) left by one, in both the
+// 28-byte batch table and the 24-byte batch info array (they are parallel), then shrinking the count. Rotating keeps
+// the draw order of the other batches (alpha-sorted hair). The lens ends up just past the record's end, where nothing
+// draws it, so a repeat lookup finds nothing left to remove.
+void RemoveLens(void* p, u8* w, WmbLod* lods, u32 cnt) {
+    u32 batches = At<u32>(w, 0x40);
+    for (u32 i = 0; i < cnt; i++) {
+        WmbLod& l = lods[i];
+        for (u32 k = 0; k < l.batchCount;) {
+            if (!IsLensMaterial(w, At<u32>(w, l.batchInfo + 24 * k + 8))) { k++; continue; }
+            u8* b = w + batches + 28 * (l.batchStart + k);
+            u8* info = w + l.batchInfo + 24 * k;
+            u32 rest = l.batchCount - k - 1;
+            u8 tb[28], ti[24];
+            Logging.Log("[ORLOD] wmb %p: LOD%d lens batch %u (%u tris) hidden", p, l.level, l.batchStart + k,
+                        At<u32>(b, 0x14) / 3);
+            std::memcpy(tb, b, 28);
+            std::memmove(b, b + 28, 28 * rest);
+            std::memcpy(b + 28 * rest, tb, 28);
+            std::memcpy(ti, info, 24);
+            std::memmove(info, info + 24, 24 * rest);
+            std::memcpy(info + 24 * rest, ti, 24);
+            l.batchCount--;
+        }
+    }
+}
+#endif
+
 void PatchWmb(void* p) {
     if (!p) return;
     u8* w = static_cast<u8*>(p);
     if (At<u32>(w, 0) != kWmb3Magic) return;
     u32 off = At<u32>(w, 0x48), cnt = At<u32>(w, 0x4C);
-    if (cnt < 2 || cnt > 16 || off < 0x80 || off > 0x10000000) return;
+    if (cnt < 1 || cnt > 16 || off < 0x80 || off > 0x10000000) return;
 
     WmbLod lods[16];
     std::memcpy(lods, w + off, cnt * sizeof(WmbLod));
+#if LOD_NO_LENS
+    // Before the redirect, so LOD1 / LOD2 inherit LOD0's shrunk range.
+    RemoveLens(p, w, lods, cnt);
+    std::memcpy(w + off, lods, cnt * sizeof(WmbLod));
+#endif
+    if (cnt < 2) return;
     int src = -1;
     for (u32 i = 0; i < cnt; i++)
         if (lods[i].level == LOD_TARGET) { src = static_cast<int>(i); break; }
@@ -125,7 +178,7 @@ bool Check(ptrdiff_t off, u32 expected) {
 
 extern "C" void exl_main(void* x0, void* x1) {
     exl::hook::Initialize();
-    Logging.Log("[ORLOD] v0.1 target=LOD%d", LOD_TARGET);
+    Logging.Log("[ORLOD] v0.2.0 target=LOD%d nolens=%d", LOD_TARGET, LOD_NO_LENS);
 
     // Wrong game build: install nothing. Prologue + the extension-table / name-table loads of each lookup.
     if (!Check(kFindFileByExt, 0xA9BB7BFD) || !Check(kFindFileByExt + 0x20, 0xB9400D09) ||
